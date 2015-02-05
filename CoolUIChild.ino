@@ -2,6 +2,8 @@
 #include <AIR430BoostFCC.h>
 #include <string.h>
 
+/* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
+#define TYPE 0x60
 #define ADDRESS_PARENT 0x01
 
 struct sPacket
@@ -12,8 +14,7 @@ struct sPacket
 };
 struct sPacket rxPacket;
 struct sPacket txPacket;
-/* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
-uint8_t ADDRESS_LOCAL = 0x60;
+uint8_t ADDRESS_LOCAL = TYPE;
 boolean initialized = false;
 
 void setup()
@@ -30,13 +31,33 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0) {
+  while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0 && rxPacket.parent == ADDRESS_PARENT) {
 //    String message = (char*) rxPacket.msg;
+      Serial.println(ADDRESS_LOCAL);
     
     if (initialized && rxPacket.node == ADDRESS_LOCAL) {
-      Serial.println((char*)rxPacket.msg);
+//      Serial.println((char*)rxPacket.msg);
 //      Serial.println(rxPacket.node);
 //      Serial.println(message);
+        if (!strcmp((char*)rxPacket.msg, "TEMP")) {
+          txPacket.parent = getTemp();  // Using parent in struct as data carrier
+        } else if (!strcmp((char*)rxPacket.msg, "ON")) {
+          on();
+        } else if (!strcmp((char*)rxPacket.msg, "OFF")) {
+          off();
+        } else if (!strcmp((char*)rxPacket.msg, "DEL")) {
+          initialized = false;
+          ADDRESS_LOCAL = TYPE;
+          txPacket.node = ADDRESS_LOCAL;
+          while(Radio.busy()){}
+          Radio.end();
+          while(Radio.busy()){}
+          Radio.begin(ADDRESS_LOCAL, CHANNEL_1, POWER_MAX);
+          digitalWrite(RED_LED, LOW);
+          while(Radio.busy()){}
+        }
+        delay(1000);
+        Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
     } else if (!initialized && !strcmp((char*)rxPacket.msg, "PAIR")) {
 //      Serial.println(rxPacket.parent);
 //      Serial.println(rxPacket.node);

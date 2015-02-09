@@ -5,12 +5,17 @@
 /* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
 #define TYPE 0x60
 #define ADDRESS_PARENT 0x00  /* hardcoded parent node */
+#define SENSOR A4
+#define SERVO  P2_0
+#define RELAY  P2_2
+#define STATUS P1_3
 
 struct sPacket
 {
+  uint8_t upper, lower;
   uint8_t parent;
   uint8_t node;
-  uint8_t msg[58];
+  uint8_t msg[56];
 };
 struct sPacket rxPacket;
 struct sPacket txPacket;
@@ -28,18 +33,18 @@ void setup()
 }
 
 void loop()
-{
+{    
   // put your main code here, to run repeatedly:
   while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0 && rxPacket.parent == ADDRESS_PARENT) {
 //    String message = (char*) rxPacket.msg;
-      Serial.println(ADDRESS_LOCAL);
+//      Serial.println(ADDRESS_LOCAL);
     
     if (initialized && rxPacket.node == ADDRESS_LOCAL) {
 //      Serial.println((char*)rxPacket.msg);
 //      Serial.println(rxPacket.node);
 //      Serial.println(message);
         if (!strcmp((char*)rxPacket.msg, "TEMP")) {
-          txPacket.parent = getTemp();  // Using parent in struct as data carrier
+          getTemp();  // Using upper and lower in struct as data carrier
         } else if (!strcmp((char*)rxPacket.msg, "ON")) {
           on();
         } else if (!strcmp((char*)rxPacket.msg, "OFF")) {
@@ -55,7 +60,7 @@ void loop()
           digitalWrite(RED_LED, LOW);
           while(Radio.busy()){}
         }
-        delay(1000);
+//        delay(1000);
         Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
     } else if (!initialized && !strcmp((char*)rxPacket.msg, "PAIR")) {
 //      Serial.println(rxPacket.parent);
@@ -78,8 +83,12 @@ void loop()
   }
 }
 
-uint8_t getTemp() {
-  return 0;
+void getTemp() {
+  int val = analogRead(SENSOR);
+  val += analogRead(SENSOR);
+  val = ceil(val / 2);
+  txPacket.upper = highByte(val);
+  txPacket.lower = lowByte(val);
 }
 
 void on() {

@@ -1,5 +1,6 @@
 #include <SPI.h>
 #include <AIR430BoostFCC.h>
+#include <Servo.h>
 #include <string.h>
 
 /* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
@@ -8,7 +9,9 @@
 #define SENSOR A4
 #define SERVO  P2_0
 #define RELAY  P2_2
-#define STATUS P1_3
+#define STATUS P1_3 
+
+Servo servo;
 
 struct sPacket
 {
@@ -25,11 +28,15 @@ boolean initialized = false;
 void setup()
 {
   Serial.begin(9600);
-  pinMode(RED_LED, OUTPUT);
-  digitalWrite(RED_LED, LOW);
+  pinMode(STATUS, OUTPUT);
+  pinMode(RELAY, OUTPUT);
+  digitalWrite(STATUS, LOW);
+  digitalWrite(RELAY, LOW);
   memset(txPacket.msg, 0, sizeof(txPacket.msg));
   txPacket.node = ADDRESS_LOCAL;
   Radio.begin(ADDRESS_LOCAL, CHANNEL_1, POWER_MAX);
+  servo.attach(SERVO);
+  servo.write(0);
 }
 
 void loop()
@@ -37,7 +44,7 @@ void loop()
   // put your main code here, to run repeatedly:
   while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0 && rxPacket.parent == ADDRESS_PARENT) {
 //    String message = (char*) rxPacket.msg;
-//      Serial.println(ADDRESS_LOCAL);
+    Serial.println((char*)rxPacket.msg);
     
     if (initialized && rxPacket.node == ADDRESS_LOCAL) {
 //      Serial.println((char*)rxPacket.msg);
@@ -57,7 +64,7 @@ void loop()
           Radio.end();
           while(Radio.busy()){}
           Radio.begin(ADDRESS_LOCAL, CHANNEL_1, POWER_MAX);
-          digitalWrite(RED_LED, LOW);
+          digitalWrite(STATUS, LOW);
           while(Radio.busy()){}
         }
 //        delay(1000);
@@ -70,7 +77,7 @@ void loop()
       strcpy((char*)txPacket.msg, "ACK");
       delay(1000);
       Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
-      digitalWrite(RED_LED, HIGH);
+      digitalWrite(STATUS, HIGH);
       initialized = true;
       while(Radio.busy()){}
       Radio.end();
@@ -92,9 +99,27 @@ void getTemp() {
 }
 
 void on() {
- 
+  if (TYPE == 0x70) {
+    digitalWrite(RELAY, HIGH);
+  } else {
+    if (servo.attached()) {
+      for (int i = servo.read(); i <= 90; i++) {
+        servo.write(i);
+        delay(15);
+      }
+    }
+  }
 }
 
 void off() {
-  
+  if (TYPE == 0x70) {
+    digitalWrite(RELAY, LOW);
+  } else {
+    if (servo.attached()) {
+      for (int i = servo.read(); i >= 0; i--) {
+        servo.write(i);
+        delay(15); 
+      }
+    }
+  }
 }

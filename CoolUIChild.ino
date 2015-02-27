@@ -2,6 +2,7 @@
 #include <AIR430BoostFCC.h>
 #include <Servo.h>
 #include <string.h>
+#include "MspFlash.h"
 
 /* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
 #define TYPE 0x60
@@ -9,7 +10,8 @@
 #define SENSOR A4
 #define SERVO  P2_0
 #define RELAY  P2_2
-#define STATUS P1_3 
+#define STATUS P1_3
+#define flash SEGMENT_D
 
 Servo servo;
 
@@ -24,6 +26,7 @@ struct sPacket rxPacket;
 struct sPacket txPacket;
 uint8_t ADDRESS_LOCAL = TYPE;
 boolean initialized = false;
+unsigned char rom[] = {0x0A, 0x1A, 0x3A, 0x00};  // {Init ? 0x0B : 0x0A, ADDRESS_LOCAL, other}
 
 void setup()
 {
@@ -94,6 +97,7 @@ void getTemp() {
   int val = analogRead(SENSOR);
   val += analogRead(SENSOR);
   val = ceil(val / 2);
+//  Serial.println(val);
   txPacket.upper = highByte(val);
   txPacket.lower = lowByte(val);
 }
@@ -122,4 +126,21 @@ void off() {
       }
     }
   }
+}
+
+unsigned char readFlash(uint8_t location) {
+  unsigned char p = 0;
+  int i=0;
+  do {
+    Flash.read(flash+i, &p, 1);
+//    Serial.write(p);
+//    Serial.print(":");    
+//    Serial.println(p);
+  } while (p && (i++ < location));
+  return p;
+}
+
+void writeFlash() {
+  Flash.erase(flash); 
+  Flash.write(flash, rom, 4);
 }

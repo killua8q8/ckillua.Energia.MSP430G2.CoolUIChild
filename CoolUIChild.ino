@@ -6,7 +6,6 @@
 
 /* child type as Node: VENT -> 0x60; FAN -> 0x70; BLIND -> 0x80 */
 #define TYPE 0x60
-#define ADDRESS_PARENT 0x00  /* hardcoded parent node */
 #define SENSOR A4
 #define SERVO  P2_0
 #define RELAY  P2_2
@@ -24,6 +23,8 @@ struct sPacket
 };
 struct sPacket rxPacket;
 struct sPacket txPacket;
+uint8_t ADDRESS_MASTER = 0x00;
+uint8_t ADDRESS_PARENT = 0x99;
 uint8_t ADDRESS_LOCAL = TYPE;
 boolean initialized = false;
 unsigned char rom[] = {0x0A, 0x1A, 0x3A, 0x00};  // {Init ? 0x0B : 0x0A, ADDRESS_LOCAL, other}
@@ -45,11 +46,11 @@ void setup()
 void loop()
 {    
   // put your main code here, to run repeatedly:
-  while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0 && rxPacket.parent == ADDRESS_PARENT) {
+  while (Radio.receiverOn((unsigned char*)&rxPacket, sizeof(rxPacket), 0) > 0) {
 //    String message = (char*) rxPacket.msg;
     Serial.println((char*)rxPacket.msg);
     
-    if (initialized && rxPacket.node == ADDRESS_LOCAL) {
+    if (initialized && rxPacket.node == ADDRESS_LOCAL && (rxPacket.parent == ADDRESS_PARENT || rxPacket.parent == ADDRESS_MASTER)) {
 //      Serial.println((char*)rxPacket.msg);
 //      Serial.println(rxPacket.node);
 //      Serial.println(message);
@@ -62,6 +63,7 @@ void loop()
         } else if (!strcmp((char*)rxPacket.msg, "DEL")) {
           initialized = false;
           ADDRESS_LOCAL = TYPE;
+          ADDRESS_PARENT = 0x99;
           txPacket.node = ADDRESS_LOCAL;
           while(Radio.busy()){}
           Radio.end();
@@ -71,14 +73,17 @@ void loop()
           while(Radio.busy()){}
         }
 //        delay(1000);
-        Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
+        if (rxPacket.parent == ADDRESS_PARENT) Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
+        else Radio.transmit(ADDRESS_MASTER, (unsigned char*)&txPacket, sizeof(txPacket));
     } else if (!initialized && !strcmp((char*)rxPacket.msg, "PAIR")) {
 //      Serial.println(rxPacket.parent);
 //      Serial.println(rxPacket.node);
 //      Serial.println(message);
+      ADDRESS_PARENT = rxPacket.parent;
       ADDRESS_LOCAL = rxPacket.node;
+      txPacket.node = ADDRESS_LOCAL;
       strcpy((char*)txPacket.msg, "ACK");
-      delay(1000);
+      delay(500);
       Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
       digitalWrite(STATUS, HIGH);
       initialized = true;
@@ -86,9 +91,7 @@ void loop()
       Radio.end();
       while(Radio.busy()){}
       Radio.begin(ADDRESS_LOCAL, CHANNEL_1, POWER_MAX);
-      txPacket.node = ADDRESS_LOCAL;
-    } 
-    
+    }
 //    Serial.println("end");
   }
 }

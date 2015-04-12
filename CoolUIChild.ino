@@ -27,6 +27,7 @@ uint8_t ADDRESS_MASTER = 0x00;
 uint8_t ADDRESS_PARENT = 0x99;
 uint8_t ADDRESS_LOCAL = TYPE;
 boolean initialized = false;
+boolean _on = true;
 unsigned char rom[] = {0x0A, 0x1A, 0x3A, 0x00};  // {Init ? 0x0B : 0x0A, ADDRESS_LOCAL, other}
 
 void setup()
@@ -57,9 +58,11 @@ void loop()
         if (!strcmp((char*)rxPacket.msg, "TEMP")) {
           getTemp();  // Using upper and lower in struct as data carrier
         } else if (!strcmp((char*)rxPacket.msg, "ON")) {
-          on();
+          if (!_on)
+            on();
         } else if (!strcmp((char*)rxPacket.msg, "OFF")) {
-          off();
+          if (_on)
+            off();
         } else if (!strcmp((char*)rxPacket.msg, "DEL")) {
           initialized = false;
           ADDRESS_LOCAL = TYPE;
@@ -106,11 +109,12 @@ void getTemp() {
 }
 
 void on() {
+  _on = true;
   if (TYPE == 0x70) {
     digitalWrite(RELAY, HIGH);
   } else {
     if (servo.attached()) {
-      for (int i = servo.read(); i <= 90; i++) {
+      for (int i = servo.read(); i <= 60; i++) {
         servo.write(i);
         delay(15);
       }
@@ -119,6 +123,7 @@ void on() {
 }
 
 void off() {
+  _on = false;
   if (TYPE == 0x70) {
     digitalWrite(RELAY, LOW);
   } else {

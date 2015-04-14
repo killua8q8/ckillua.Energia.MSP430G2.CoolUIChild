@@ -82,6 +82,11 @@ void loop()
           digitalWrite(STATUS, HIGH);
           delay(500);
           digitalWrite(STATUS, LOW);
+        } else if (!strcmp((char*)rxPacket.msg, "STA")) {
+          if (_on)
+            txPacket.upper = 1;
+          else
+            txPacket.upper = 0;
         }
 //        delay(1000);
         if (rxPacket.parent == ADDRESS_PARENT) Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));

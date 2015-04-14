@@ -27,7 +27,7 @@ uint8_t ADDRESS_MASTER = 0x00;
 uint8_t ADDRESS_PARENT = 0x99;
 uint8_t ADDRESS_LOCAL = TYPE;
 boolean initialized = false;
-boolean _on = true;
+boolean _on = false;
 unsigned char rom[] = {0x0A, 0x1A, 0x3A, 0x00};  // {Init ? 0x0B : 0x0A, ADDRESS_LOCAL, other}
 
 void setup()
@@ -72,8 +72,16 @@ void loop()
           Radio.end();
           while(Radio.busy()){}
           Radio.begin(ADDRESS_LOCAL, CHANNEL_1, POWER_MAX);
-          digitalWrite(STATUS, LOW);
           while(Radio.busy()){}
+          digitalWrite(STATUS, LOW);
+          delay(500);
+          digitalWrite(STATUS, HIGH);
+          delay(500);
+          digitalWrite(STATUS, LOW);
+          delay(500);
+          digitalWrite(STATUS, HIGH);
+          delay(500);
+          digitalWrite(STATUS, LOW);
         }
 //        delay(1000);
         if (rxPacket.parent == ADDRESS_PARENT) Radio.transmit(ADDRESS_PARENT, (unsigned char*)&txPacket, sizeof(txPacket));
@@ -114,10 +122,14 @@ void on() {
     digitalWrite(RELAY, HIGH);
   } else {
     if (servo.attached()) {
-      for (int i = servo.read(); i <= 60; i++) {
-        servo.write(i);
-        delay(15);
-      }
+//      for (int i = servo.read(); i <= 60; i++) {
+//        servo.write(i);
+//        delay(15);
+//      }
+      if (TYPE == 0x60)
+        servo.write(60);
+      else 
+        servo.write(90);
     }
   }
 }
@@ -128,10 +140,11 @@ void off() {
     digitalWrite(RELAY, LOW);
   } else {
     if (servo.attached()) {
-      for (int i = servo.read(); i >= 0; i--) {
-        servo.write(i);
-        delay(15); 
-      }
+//      for (int i = servo.read(); i >= 0; i--) {
+//        servo.write(i);
+//        delay(15); 
+//      }
+      servo.write(0);
     }
   }
 }
